@@ -283,6 +283,42 @@ select {
   white-space: nowrap;
 }
 
+.drag-handle {
+  width: 36px;
+  height: 44px;
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  touch-action: none;
+  cursor: grab;
+}
+
+.player.dragging {
+  opacity: 0.78;
+  background: var(--card);
+}
+
+.player.dragging .drag-handle {
+  cursor: grabbing;
+}
+
+.jersey {
+  width: 44px;
+  height: 48px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: #12301c;
+  background: #f4f7f2;
+  clip-path: polygon(22% 6%, 38% 18%, 62% 18%, 78% 6%, 94% 20%, 90% 100%, 10% 100%, 6% 20%);
+  font-weight: 800;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .jersey span {
   transform: translateY(3px);
 }

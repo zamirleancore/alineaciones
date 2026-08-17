@@ -299,6 +299,61 @@ function removePlayer(id) {
   render();
 }
 
+function reorderPlayers(ids) {
+  const byId = new Map(state.players.map((player) => [player.id, player]));
+  const next = ids.map((id) => byId.get(id)).filter(Boolean);
+  for (const player of state.players) {
+    if (!next.includes(player)) next.push(player);
+  }
+  const same = next.length === state.players.length && next.every((player, index) => player.id === state.players[index].id);
+  if (same) return;
+  state.players = next;
+  save();
+}
+
+function enablePlayerDrag(row) {
+  const handle = row.querySelector(".drag-handle");
+  if (!handle) return;
+  handle.addEventListener("pointerdown", (event) => {
+    if (event.button) return;
+    event.preventDefault();
+    handle.setPointerCapture(event.pointerId);
+    row.classList.add("dragging");
+    const list = row.parentElement;
+    const scroller = document.querySelector(".view");
+
+    const onMove = (moveEvent) => {
+      const y = moveEvent.clientY;
+      if (scroller) {
+        const box = scroller.getBoundingClientRect();
+        if (y < box.top + 56) scroller.scrollTop -= 18;
+        else if (y > box.bottom - 56) scroller.scrollTop += 18;
+      }
+      const others = [...list.querySelectorAll(".player")].filter((item) => item !== row);
+      const after = others.find((item) => {
+        const box = item.getBoundingClientRect();
+        return y < box.top + box.height / 2;
+      });
+      if (after) list.insertBefore(row, after);
+      else list.appendChild(row);
+    };
+
+    const onUp = () => {
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onUp);
+      handle.removeEventListener("pointercancel", onUp);
+      try { handle.releasePointerCapture(event.pointerId); } catch { /* already released */ }
+      row.classList.remove("dragging");
+      const ids = [...list.querySelectorAll(".player")].map((item) => item.dataset.id);
+      reorderPlayers(ids);
+    };
+
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onUp);
+    handle.addEventListener("pointercancel", onUp);
+  });
+}
+
 function dropFromSubs(item, playerId) {
   item.subs = (item.subs || []).filter((id) => id !== playerId);
 }
@@ -792,16 +847,29 @@ function plantelView() {
     }
   });
 
-  const sorted = [...state.players].sort((a, b) => a.number - b.number || a.name.localeCompare(b.name, "es"));
-  const list = sorted.length
+  const list = state.players.length
     ? h("div", { class: "squad" },
         h("div", { class: "squad-head" },
           h("span", {}, "Jugadores"),
-          h("span", {}, "Toca para editar")
+          h("span", {}, "Arrastra para ordenar")
         ),
-        ...sorted.map((player) => {
+        ...state.players.map((player) => {
           const status = playerStatus(player);
-          return h("div", { class: "player" },
+          const row = h("div", { class: "player", "data-id": player.id },
+            h("button", {
+              class: "drag-handle",
+              type: "button",
+              "aria-label": `Mover a ${player.name}`,
+            },
+              h("svg", { viewBox: "0 0 24 24", width: "18", height: "18", fill: "currentColor" },
+                h("circle", { cx: "9", cy: "7", r: "1.6" }),
+                h("circle", { cx: "15", cy: "7", r: "1.6" }),
+                h("circle", { cx: "9", cy: "12", r: "1.6" }),
+                h("circle", { cx: "15", cy: "12", r: "1.6" }),
+                h("circle", { cx: "9", cy: "17", r: "1.6" }),
+                h("circle", { cx: "15", cy: "17", r: "1.6" })
+              )
+            ),
             h("button", {
               class: "player-main",
               onClick: () => {
@@ -833,6 +901,8 @@ function plantelView() {
               )
             )
           );
+          enablePlayerDrag(row);
+          return row;
         })
       )
     : h("div", { class: "plantel-empty" },
@@ -851,7 +921,7 @@ function plantelView() {
         h("span", { class: "plantel-count" }, `${state.players.length}`)
       ),
       form,
-      h("p", { class: "hint" }, "El número de camiseta no se puede repetir.")
+      h("p", { class: "hint" }, "Arrastra los puntos para cambiar el orden. Toca el nombre para editar.")
     ),
     list
   );
