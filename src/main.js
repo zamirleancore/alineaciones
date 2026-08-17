@@ -419,16 +419,230 @@ function lineupText() {
   ].join("\n");
 }
 
+function pathRoundRect(ctx, x, y, w, h, r) {
+  const radius = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  if (typeof ctx.roundRect === "function") {
+    ctx.roundRect(x, y, w, h, radius);
+    return;
+  }
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + w, y, x + w, y + h, radius);
+  ctx.arcTo(x + w, y + h, x, y + h, radius);
+  ctx.arcTo(x, y + h, x, y, radius);
+  ctx.arcTo(x, y, x + w, y, radius);
+  ctx.closePath();
+}
+
+function fitText(ctx, text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let value = text;
+  while (value.length > 1 && ctx.measureText(`${value}…`).width > maxWidth) {
+    value = value.slice(0, -1);
+  }
+  return `${value}…`;
+}
+
+function wrapLine(ctx, text, maxWidth) {
+  const words = text.split(" ");
+  const lines = [];
+  let line = "";
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && ctx.measureText(next).width > maxWidth) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = next;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+async function lineupImageFile() {
+  await document.fonts.ready.catch(() => {});
+  const current = team();
+  const slots = formationSlots();
+  const subs = (current.subs || []).map(playerById).filter(Boolean);
+  const width = 1080;
+  const header = 176;
+  const pitchH = 1260;
+  const pad = 56;
+  const measure = document.createElement("canvas").getContext("2d");
+  measure.font = "600 28px Outfit, system-ui, sans-serif";
+  const subText = subs.length
+    ? subs.map((player) => `${player.number} ${player.name}`).join("   ·   ")
+    : "Sin suplentes convocados";
+  const subLines = wrapLine(measure, subText, width - pad * 2);
+  const footer = 88 + subLines.length * 40;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = header + pitchH + footer;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#07140c";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.fillStyle = "#e8c547";
+  ctx.font = "700 26px Outfit, system-ui, sans-serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText("ALINEACIONES", pad, 64);
+
+  ctx.fillStyle = "#f4f7f2";
+  ctx.font = "800 52px Outfit, system-ui, sans-serif";
+  ctx.fillText(fitText(ctx, current.name, 720), pad, 128);
+
+  ctx.fillStyle = "#e8c547";
+  ctx.font = "800 36px Outfit, system-ui, sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText(current.formation, width - pad, 128);
+
+  const px = 48;
+  const py = header;
+  const pw = width - 96;
+  const ph = pitchH;
+  ctx.save();
+  pathRoundRect(ctx, px, py, pw, ph, 36);
+  ctx.clip();
+  const stripe = pw / 8;
+  for (let i = 0; i < 8; i += 1) {
+    ctx.fillStyle = i % 2 === 0 ? "#14632d" : "#1b7a38";
+    ctx.fillRect(px + i * stripe, py, stripe + 1, ph);
+  }
+
+  const inset = 38;
+  const fx = px + inset;
+  const fy = py + inset;
+  const fw = pw - inset * 2;
+  const fh = ph - inset * 2;
+  ctx.strokeStyle = "rgba(255,255,255,0.86)";
+  ctx.lineWidth = 5;
+  ctx.strokeRect(fx, fy, fw, fh);
+  ctx.beginPath();
+  ctx.moveTo(fx, fy + fh / 2);
+  ctx.lineTo(fx + fw, fy + fh / 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(fx + fw / 2, fy + fh / 2, fw * 0.145, 0, Math.PI * 2);
+  ctx.stroke();
+  const boxW = fw * 0.62;
+  const boxH = fh * 0.18;
+  ctx.strokeRect(fx + (fw - boxW) / 2, fy, boxW, boxH);
+  ctx.strokeRect(fx + (fw - boxW) / 2, fy + fh - boxH, boxW, boxH);
+  ctx.restore();
+
+  ctx.strokeStyle = "rgba(255,255,255,0.8)";
+  ctx.lineWidth = 6;
+  pathRoundRect(ctx, px, py, pw, ph, 36);
+  ctx.stroke();
+
+  for (const slot of slots) {
+    const player = playerById(current.slots[slot.id]);
+    const x = Math.min(Math.max(px + (slot.x / 100) * pw, px + 58), px + pw - 58);
+    const y = Math.min(Math.max(py + (slot.y / 100) * ph, py + 58), py + ph - 70);
+    const radius = 44;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    if (player) {
+      ctx.fillStyle = "#f4f7f2";
+      ctx.fill();
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(255,255,255,0.85)";
+      ctx.stroke();
+      ctx.fillStyle = "#12301c";
+      ctx.font = "800 30px Outfit, system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(player.number), x, y + 1);
+      ctx.fillStyle = "#f4f7f2";
+      ctx.font = "700 24px Outfit, system-ui, sans-serif";
+      ctx.textBaseline = "top";
+      ctx.shadowColor = "rgba(0,0,0,0.65)";
+      ctx.shadowBlur = 8;
+      ctx.fillText(fitText(ctx, player.name, 168), x, y + radius + 8);
+      ctx.shadowBlur = 0;
+    } else {
+      ctx.fillStyle = "rgba(8, 28, 14, 0.72)";
+      ctx.fill();
+      ctx.setLineDash([7, 7]);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "rgba(255,255,255,0.7)";
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "rgba(255,255,255,0.82)";
+      ctx.font = "800 20px Outfit, system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(slot.role, x, y);
+    }
+  }
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#e8c547";
+  ctx.font = "700 22px Outfit, system-ui, sans-serif";
+  ctx.fillText("SUPLENTES", pad, py + ph + 52);
+  ctx.fillStyle = subs.length ? "#f4f7f2" : "#9bb3a3";
+  ctx.font = "600 28px Outfit, system-ui, sans-serif";
+  subLines.forEach((line, index) => {
+    ctx.fillText(line, pad, py + ph + 94 + index * 40);
+  });
+
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!blob) throw new Error("image");
+  const safe = current.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ]+/g, "-").replace(/^-|-$/g, "") || "alineacion";
+  return new File([blob], `${safe}.png`, { type: "image/png" });
+}
+
+function downloadFile(file) {
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(file);
+  link.download = file.name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1500);
+}
+
 async function shareLineup() {
   const text = lineupText();
-  if (navigator.share) {
+  let file = null;
+  try {
+    file = await lineupImageFile();
+  } catch {
+    file = null;
+  }
+
+  if (file && navigator.canShare?.({ files: [file] })) {
     try {
-      await navigator.share({ title: team().name, text });
+      await navigator.share({ files: [file], title: team().name, text });
       return;
     } catch (error) {
       if (error?.name === "AbortError") return;
     }
   }
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: team().name, text });
+      if (file) downloadFile(file);
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+
+  if (file) {
+    downloadFile(file);
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("Imagen guardada y texto copiado");
+    } catch {
+      showToast("Imagen guardada");
+    }
+    return;
+  }
+
   try {
     await navigator.clipboard.writeText(text);
     showToast("Alineación copiada");
