@@ -502,10 +502,13 @@ function importBackup(file) {
 }
 
 function h(tag, attrs = {}, ...children) {
-  const el = document.createElement(tag);
+  const svgTags = new Set(["svg", "path", "circle", "line", "rect"]);
+  const el = svgTags.has(tag)
+    ? document.createElementNS("http://www.w3.org/2000/svg", tag)
+    : document.createElement(tag);
   for (const [key, value] of Object.entries(attrs)) {
-    if (key === "class") el.className = value;
-    else if (key === "checked" || key === "value" || key === "selected") el[key] = value;
+    if (key === "class") el.setAttribute("class", value);
+    else if (!svgTags.has(tag) && (key === "checked" || key === "value" || key === "selected")) el[key] = value;
     else if (key.startsWith("on") && typeof value === "function") {
       el.addEventListener(key.slice(2).toLowerCase(), value);
     } else if (value === false || value == null) {
@@ -545,11 +548,26 @@ function sheet(title, body) {
   );
 }
 
+function playerStatus(player) {
+  const placed = slotIdOfPlayer(player.id);
+  if (placed) {
+    return { label: slotById(placed)?.role || "Cancha", kind: "starter" };
+  }
+  if ((team().subs || []).includes(player.id)) {
+    return { label: "Suplente", kind: "sub" };
+  }
+  const other = otherLineupName(player.id);
+  if (other) return { label: other, kind: "other" };
+  return { label: "Libre", kind: "free" };
+}
+
 function plantelView() {
-  const form = h("form", { class: "row" },
-    h("input", { name: "name", placeholder: "Nombre del jugador", autocomplete: "off", maxlength: "24" }),
-    h("input", { name: "number", type: "number", min: "1", max: "99", placeholder: "Nº", inputmode: "numeric", style: "max-width:72px" }),
-    h("button", { class: "btn", type: "submit" }, "Agregar")
+  const form = h("form", { class: "plantel-form" },
+    h("input", { class: "field", name: "name", placeholder: "Nombre del jugador", autocomplete: "off", maxlength: "24" }),
+    h("div", { class: "plantel-form-row" },
+      h("input", { class: "field", name: "number", type: "number", min: "1", max: "99", placeholder: "Nº", inputmode: "numeric" }),
+      h("button", { class: "btn", type: "submit" }, "Agregar")
+    )
   );
   form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -560,10 +578,16 @@ function plantelView() {
     }
   });
 
-  const list = state.players.length
-    ? h("div", { class: "player-list" },
-        ...state.players.map((player) =>
-          h("div", { class: "player" },
+  const sorted = [...state.players].sort((a, b) => a.number - b.number || a.name.localeCompare(b.name, "es"));
+  const list = sorted.length
+    ? h("div", { class: "squad" },
+        h("div", { class: "squad-head" },
+          h("span", {}, "Jugadores"),
+          h("span", {}, "Toca para editar")
+        ),
+        ...sorted.map((player) => {
+          const status = playerStatus(player);
+          return h("div", { class: "player" },
             h("button", {
               class: "player-main",
               onClick: () => {
@@ -572,8 +596,11 @@ function plantelView() {
                 render();
               },
             },
-              h("div", { class: "num" }, player.number),
-              h("strong", {}, player.name)
+              h("div", { class: "jersey" }, h("span", {}, player.number)),
+              h("div", { class: "player-copy" },
+                h("strong", {}, player.name),
+                h("span", { class: `status status-${status.kind}` }, status.label)
+              )
             ),
             h("button", {
               class: "icon-btn",
@@ -584,16 +611,33 @@ function plantelView() {
                 action: () => removePlayer(player.id),
               }),
               "aria-label": "Eliminar",
-            }, "✕")
-          )
-        )
+            },
+              h("svg", { viewBox: "0 0 24 24", width: "18", height: "18", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round" },
+                h("path", { d: "M4 7h16" }),
+                h("path", { d: "M9 7V5h6v2" }),
+                h("path", { d: "M7 7v12h10V7" })
+              )
+            )
+          );
+        })
       )
-    : h("p", { class: "empty" }, "Todavía no hay jugadores. Agrega nombres para armar el once.");
+    : h("div", { class: "plantel-empty" },
+        h("div", { class: "jersey jersey-lg" }, h("span", {}, "?")),
+        h("strong", {}, "Todavía no hay plantel"),
+        h("p", {}, "Agrega el primer jugador para armar el once.")
+      );
 
-  return h("section", {},
-    h("div", { class: "card" },
+  return h("section", { class: "plantel" },
+    h("div", { class: "card plantel-add" },
+      h("div", { class: "plantel-add-head" },
+        h("div", {},
+          h("p", { class: "plantel-kicker" }, "Nuevo jugador"),
+          h("h2", {}, "Alta al plantel")
+        ),
+        h("span", { class: "plantel-count" }, `${state.players.length}`)
+      ),
       form,
-      h("p", { class: "hint" }, "Toca un jugador para editarlo. Los datos se quedan en este celular.")
+      h("p", { class: "hint" }, "El número de camiseta no se puede repetir.")
     ),
     list
   );

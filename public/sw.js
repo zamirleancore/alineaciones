@@ -1,4 +1,4 @@
-const CACHE = "alineaciones-v4";
+const CACHE = "alineaciones-v5";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

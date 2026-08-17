@@ -157,40 +157,194 @@ select {
   margin: 10px 0 0;
 }
 
-.player-list {
+.field {
+  width: 100%;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.plantel {
   display: flex;
   flex-direction: column;
+  gap: 14px;
+}
+
+.plantel-add {
+  background:
+    linear-gradient(180deg, rgba(232, 197, 71, 0.08), transparent 48%),
+    var(--bg-elev);
+}
+
+.plantel-add-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.plantel-add-head h2 {
+  margin: 2px 0 0;
+  font-size: 1.15rem;
+  letter-spacing: -0.03em;
+}
+
+.plantel-kicker {
+  margin: 0;
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.plantel-count {
+  min-width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--gold);
+  color: #13210f;
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.plantel-form .field {
+  margin-bottom: 0;
+}
+
+.plantel-form-row {
+  display: grid;
+  grid-template-columns: 88px 1fr;
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 8px;
+}
+
+.squad {
+  background: var(--bg-elev);
+  border: 1px solid var(--stroke);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.squad-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 14px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--stroke);
 }
 
 .player {
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: var(--bg-elev);
-  border: 1px solid var(--stroke);
-  border-radius: 14px;
-  padding: 10px 12px;
+  gap: 8px;
+  padding: 10px 10px 10px 12px;
+  border-bottom: 1px solid var(--stroke);
 }
 
-.num {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: var(--gold-dim);
-  color: var(--gold);
-  display: grid;
-  place-items: center;
-  font-weight: 800;
+.player:last-child {
+  border-bottom: 0;
 }
 
-.player-main strong {
+.player-main {
   flex: 1;
-  font-weight: 600;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  padding: 4px 0;
+  text-align: left;
+}
+
+.player-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.player-copy strong {
+  font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.jersey span {
+  transform: translateY(3px);
+}
+
+.jersey-lg {
+  width: 58px;
+  height: 64px;
+  font-size: 1.2rem;
+  color: var(--gold);
+  background: var(--gold-dim);
+}
+
+.status {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.status-starter {
+  background: var(--gold);
+  color: #13210f;
+}
+
+.status-sub {
+  background: var(--gold-dim);
+  color: var(--gold);
+}
+
+.status-other {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+}
+
+.status-free {
+  background: rgba(155, 179, 163, 0.12);
+  color: var(--muted);
+}
+
+.plantel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 36px 16px;
+  background: var(--bg-elev);
+  border: 1px dashed var(--stroke);
+  border-radius: 18px;
+  text-align: center;
+}
+
+.plantel-empty strong {
+  font-size: 1.05rem;
+}
+
+.plantel-empty p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .icon-btn {
@@ -200,6 +354,8 @@ select {
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.05);
   color: var(--muted);
+  display: grid;
+  place-items: center;
 }
 
 .formations {
@@ -432,16 +588,6 @@ select {
 
 .choice.disabled {
   opacity: 0.5;
-}
-
-.field {
-  width: 100%;
-  background: var(--card);
-  color: var(--text);
-  border: 1px solid var(--stroke);
-  border-radius: 12px;
-  padding: 12px 14px;
-  margin-bottom: 10px;
 }
 
 .toggle {
