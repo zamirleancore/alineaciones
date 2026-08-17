@@ -406,6 +406,21 @@ select {
   justify-content: space-between;
 }
 
+.choice.current {
+  border-color: var(--gold);
+  background: var(--gold-dim);
+}
+
+.choice-meta {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.sheet-card .section-title {
+  margin: 12px 0 8px;
+}
+
 .team-item {
   display: flex;
   gap: 8px;

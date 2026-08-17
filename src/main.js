@@ -76,6 +76,7 @@ function defaultState() {
   return {
     tab: "cancha",
     pickerSlot: null,
+    confirm: null,
     toast: "",
     players: [],
     teams: [{ id: teamId, name: "Equipo A", formation: "4-3-3", slots: {} }],
@@ -87,7 +88,7 @@ function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
     if (!saved) return defaultState();
-    return { ...defaultState(), ...saved, pickerSlot: null, toast: "" };
+    return { ...defaultState(), ...saved, pickerSlot: null, confirm: null, toast: "" };
   } catch {
     return defaultState();
   }
@@ -107,6 +108,17 @@ function save() {
   );
 }
 
+let didPrune = false;
+for (const item of state.teams) {
+  const valid = new Set((FORMATIONS[item.formation] || FORMATIONS["4-3-3"]).map((slot) => slot.id));
+  const nextSlots = Object.fromEntries(
+    Object.entries(item.slots || {}).filter(([slotId]) => valid.has(slotId))
+  );
+  if (Object.keys(nextSlots).length !== Object.keys(item.slots || {}).length) didPrune = true;
+  item.slots = nextSlots;
+}
+if (didPrune) save();
+
 function team() {
   return state.teams.find((item) => item.id === state.activeTeamId) || state.teams[0];
 }
@@ -115,8 +127,25 @@ function playerById(id) {
   return state.players.find((player) => player.id === id);
 }
 
+function formationSlots() {
+  return FORMATIONS[team()?.formation] || FORMATIONS["4-3-3"];
+}
+
+function slotById(slotId) {
+  return formationSlots().find((slot) => slot.id === slotId);
+}
+
+function slotIdOfPlayer(playerId) {
+  return Object.keys(team().slots).find((key) => team().slots[key] === playerId) || null;
+}
+
 function usedPlayerIds() {
-  return new Set(Object.values(team().slots).filter(Boolean));
+  const valid = new Set(formationSlots().map((slot) => slot.id));
+  return new Set(
+    Object.entries(team().slots)
+      .filter(([slotId, playerId]) => playerId && valid.has(slotId))
+      .map(([, playerId]) => playerId)
+  );
 }
 
 function nextNumber() {
@@ -138,10 +167,20 @@ function showToast(message) {
   }, 1800);
 }
 
+function closeOverlays() {
+  state.pickerSlot = null;
+  state.confirm = null;
+}
+
 function setTab(tab) {
   state.tab = tab;
-  state.pickerSlot = null;
+  closeOverlays();
   save();
+  render();
+}
+
+function askConfirm({ title, message, confirmLabel = "Confirmar", action }) {
+  state.confirm = { title, message, confirmLabel, action };
   render();
 }
 
@@ -172,19 +211,40 @@ function removePlayer(id) {
 function assign(slotId, playerId) {
   const current = team();
   const slots = { ...current.slots };
-  for (const [key, value] of Object.entries(slots)) {
-    if (value === playerId) delete slots[key];
+  if (!playerId) {
+    delete slots[slotId];
+  } else {
+    const previousSlot = Object.keys(slots).find((key) => slots[key] === playerId);
+    const occupant = slots[slotId];
+    if (previousSlot && occupant && previousSlot !== slotId) {
+      slots[previousSlot] = occupant;
+      slots[slotId] = playerId;
+    } else {
+      if (previousSlot) delete slots[previousSlot];
+      slots[slotId] = playerId;
+    }
   }
-  if (playerId) slots[slotId] = playerId;
-  else delete slots[slotId];
   current.slots = slots;
-  state.pickerSlot = null;
+  closeOverlays();
   save();
   render();
 }
 
 function setFormation(formation) {
-  team().formation = formation;
+  const current = team();
+  const validIds = new Set((FORMATIONS[formation] || []).map((slot) => slot.id));
+  current.formation = formation;
+  current.slots = Object.fromEntries(
+    Object.entries(current.slots).filter(([slotId]) => validIds.has(slotId))
+  );
+  closeOverlays();
+  save();
+  render();
+}
+
+function clearLineup() {
+  team().slots = {};
+  closeOverlays();
   save();
   render();
 }
@@ -219,7 +279,7 @@ function deleteTeam(id) {
 
 function lineupText() {
   const current = team();
-  const slots = FORMATIONS[current.formation];
+  const slots = formationSlots();
   const used = usedPlayerIds();
   const lines = slots.map((slot) => {
     const player = playerById(current.slots[slot.id]);
@@ -288,7 +348,16 @@ function plantelView() {
           h("div", { class: "player" },
             h("div", { class: "num" }, player.number),
             h("strong", {}, player.name),
-            h("button", { class: "icon-btn", onClick: () => removePlayer(player.id), "aria-label": "Eliminar" }, "✕")
+            h("button", {
+              class: "icon-btn",
+              onClick: () => askConfirm({
+                title: `¿Eliminar a ${player.name}?`,
+                message: "Se quita del plantel y de todas las alineaciones.",
+                confirmLabel: "Eliminar",
+                action: () => removePlayer(player.id),
+              }),
+              "aria-label": "Eliminar",
+            }, "✕")
           )
         )
       )
@@ -302,7 +371,7 @@ function plantelView() {
 
 function canchaView() {
   const current = team();
-  const slots = FORMATIONS[current.formation];
+  const slots = formationSlots();
   const used = usedPlayerIds();
   const bench = state.players.filter((player) => !used.has(player.id));
 
@@ -337,7 +406,15 @@ function canchaView() {
     ),
     h("div", { class: "actions" },
       h("button", { class: "btn ghost", onClick: shareLineup }, "Compartir"),
-      h("button", { class: "btn ghost", onClick: () => { team().slots = {}; save(); render(); } }, "Limpiar once")
+      h("button", {
+        class: "btn ghost",
+        onClick: () => askConfirm({
+          title: "¿Limpiar el once?",
+          message: "Los jugadores vuelven a la banca.",
+          confirmLabel: "Limpiar",
+          action: clearLineup,
+        }),
+      }, "Limpiar once")
     ),
     h("div", { class: "bench" },
       h("h3", {}, "Banca"),
@@ -368,7 +445,21 @@ function equiposView() {
           },
         }, "Usar"),
         nameInput,
-        h("button", { class: "btn danger", onClick: () => deleteTeam(item.id) }, "Borrar")
+        h("button", {
+          class: "btn danger",
+          onClick: () => {
+            if (state.teams.length === 1) {
+              showToast("Deja al menos un equipo");
+              return;
+            }
+            askConfirm({
+              title: `¿Borrar ${item.name}?`,
+              message: "Se pierde esa alineación. El plantel no se borra.",
+              confirmLabel: "Borrar",
+              action: () => deleteTeam(item.id),
+            });
+          },
+        }, "Borrar")
       );
     })
   );
@@ -376,26 +467,79 @@ function equiposView() {
 
 function picker() {
   if (!state.pickerSlot) return null;
-  const used = usedPlayerIds();
+  const slot = slotById(state.pickerSlot);
   const currentId = team().slots[state.pickerSlot];
-  const available = state.players.filter((player) => !used.has(player.id) || player.id === currentId);
+  const onPitch = [];
+  const bench = [];
+  for (const player of state.players) {
+    const placed = slotIdOfPlayer(player.id);
+    if (placed) onPitch.push({ player, placed });
+    else bench.push(player);
+  }
+
+  const choice = (player, hint) => {
+    const isCurrent = player.id === currentId;
+    return h("button", {
+      class: `choice${isCurrent ? " current" : ""}`,
+      onClick: () => assign(state.pickerSlot, player.id),
+    },
+      h("span", {}, player.name),
+      h("span", { class: "choice-meta" }, `${hint} · ${player.number}`)
+    );
+  };
+
   return h("div", { class: "sheet", onClick: (event) => {
       if (event.target.classList.contains("sheet")) {
-        state.pickerSlot = null;
+        closeOverlays();
         render();
       }
     } },
     h("div", { class: "sheet-card" },
-      h("h2", {}, "Elegir jugador"),
+      h("h2", {}, slot ? `Elegir para ${slot.role}` : "Elegir jugador"),
       currentId && h("button", { class: "choice", onClick: () => assign(state.pickerSlot, null) }, "Quitar de la posición"),
-      available.length
-        ? available.map((player) =>
-            h("button", { class: "choice", onClick: () => assign(state.pickerSlot, player.id) },
-              h("span", {}, player.name),
-              h("strong", {}, player.number)
-            )
-          )
-        : h("p", { class: "empty" }, "No hay jugadores libres. Agrégalos en Plantel.")
+      state.players.length === 0
+        ? h("p", { class: "empty" }, "No hay jugadores. Agrégalos en Plantel.")
+        : [
+            onPitch.length ? h("h3", { class: "section-title" }, "En cancha · toca para mover o intercambiar") : null,
+            ...onPitch.map(({ player, placed }) =>
+              choice(player, player.id === currentId ? "Aquí" : (slotById(placed)?.role || "Cancha"))
+            ),
+            bench.length ? h("h3", { class: "section-title" }, "Banca") : null,
+            ...bench.map((player) => choice(player, "Banca")),
+          ],
+      h("button", {
+        class: "btn ghost",
+        style: "width:100%;margin-top:8px",
+        onClick: () => { closeOverlays(); render(); },
+      }, "Cerrar")
+    )
+  );
+}
+
+function confirmDialog() {
+  if (!state.confirm) return null;
+  const { title, message, confirmLabel } = state.confirm;
+  return h("div", { class: "sheet", onClick: (event) => {
+      if (event.target.classList.contains("sheet")) {
+        closeOverlays();
+        render();
+      }
+    } },
+    h("div", { class: "sheet-card" },
+      h("h2", {}, title),
+      message && h("p", { class: "hint" }, message),
+      h("div", { class: "actions" },
+        h("button", { class: "btn ghost", onClick: () => { closeOverlays(); render(); } }, "Cancelar"),
+        h("button", {
+          class: "btn danger",
+          onClick: () => {
+            const action = state.confirm?.action;
+            closeOverlays();
+            if (action) action();
+            else render();
+          },
+        }, confirmLabel || "Confirmar")
+      )
     )
   );
 }
@@ -433,6 +577,7 @@ function render() {
     ),
     h("main", { class: "view" }, views[state.tab]()),
     picker(),
+    confirmDialog(),
     state.toast && h("div", { class: "toast" }, state.toast)
   );
 }
