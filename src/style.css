@@ -185,9 +185,12 @@ select {
   font-weight: 800;
 }
 
-.player strong {
+.player-main strong {
   flex: 1;
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .icon-btn {
@@ -370,6 +373,12 @@ select {
   padding: 8px 12px;
 }
 
+.pill.sub {
+  border-color: var(--gold);
+  background: var(--gold-dim);
+  color: var(--gold);
+}
+
 .sheet {
   position: fixed;
   inset: 0;
@@ -421,6 +430,33 @@ select {
   margin: 12px 0 8px;
 }
 
+.choice.disabled {
+  opacity: 0.5;
+}
+
+.field {
+  width: 100%;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 12px;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+
+.toggle input {
+  margin-top: 3px;
+}
+
 .team-item {
   display: flex;
   gap: 8px;
@@ -429,8 +465,29 @@ select {
 }
 
 .team-item button:first-child {
-  flex: 1;
+  flex: 0 0 auto;
   text-align: left;
+}
+
+.team-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.team-meta input {
+  width: 100%;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.team-meta .hint {
+  margin: 0;
 }
 
 .empty {
